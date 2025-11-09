@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}New Chat - AmbaLearn{% endblock %}
+{% block app_bar_title %}New Chat{% endblock %}
+
+{% block page_content %}
+<div class="chat-container">
+    <div class="chat-messages" id="chat-messages">
+        <div class="chat-placeholder">
+            Mau belajar apa hari ini?
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block input_bar %}
+<div class="input-bar">
+    <form id="new-chat-form">
+        <input type="text" id="message-input" placeholder="Tulis disini..." autocomplete="off">
+        <button type="submit" id="send-button">
+            <span class="material-icons">send</span>
+        </button>
+    </form>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const chatForm = document.getElementById('new-chat-form');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Disable form
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<span class="material-icons icon-spin">sync</span>';
+
+            try {
+                // Send message to our NEW chat proxy
+                const response = await fetch("{{ url_for('api_new_chat') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+
+                if (!response.ok) {
+                    throw new Error('API request failed');
+                }
+                
+                const data = await response.json();
+                
+                // On success, redirect to the new chat's dedicated page
+                window.location.href = `{{ url_for('chat_page', uid='__UID__') }}`.replace('__UID__', data.uid);
+
+            } catch (error) {
+                console.error('Chat error:', error);
+                alert('Error starting new chat. Please try again.');
+                // Re-enable form
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                sendButton.innerHTML = '<span class="material-icons">send</span>';
+            }
+        });
+    });
+</script>
+{% endblock %}

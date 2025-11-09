@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AmbaLearn{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <aside class="drawer">
+        <div class="drawer-header">
+            AmbaLearn Menu
+        </div>
+        
+        <div class="drawer-content">
+            <ul class="drawer-list">
+                <li>
+                    <a href="{{ url_for('homepage') }}">
+                        <span class="material-icons icon">add</span>
+                        New Chat
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('courses') }}">
+                        <span class="material-icons icon">school</span>
+                        Courses
+                    </a>
+                </li>
+            </ul>
+            
+            <div class="list-header">Chats</div>
+            
+            <ul class="drawer-list" id="chat-history-list">
+                {% for chat in chat_history %}
+                <li>
+                    <a href="{{ url_for('chat_page', uid=chat.uid) }}">
+                        <span class="material-icons icon">chat_bubble_outline</span>
+                        {{ chat.title or 'New Chat' }}
+                    </a>
+                </li>
+                {% else %}
+                <li>
+                    <a href="#" style="color: var(--color-text-dim); pointer-events: none;">
+                        <span class="material-icons icon">info</span>
+                        No chat history
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="drawer-footer">
+            {% if logged_in_user %}
+            <a href="{{ url_for('user_settings') }}">
+                <div class.avatar">{{ logged_in_user.username[0] | upper if logged_in_user.username else 'A' }}</div>
+                <span class.username">{{ logged_in_user.username }}</span>
+                <span class="material-icons icon">arrow_forward_ios</span>
+            </a>
+            {% endif %}
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="app-bar">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <span class="title">
+                {% block app_bar_title %}AmbaLearn{% endblock %}
+            </span>
+        </header>
+
+        <div class="page-body" id="page-body">
+            {% block page_content %}
+            {% endblock %}
+        </div>
+
+        {% block input_bar %}
+        {% endblock %}
+    </main>
+    
+</body>
+</html>

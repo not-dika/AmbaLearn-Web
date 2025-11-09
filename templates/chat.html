@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}{{ chat_data.title or 'Chat' }} - AmbaLearn{% endblock %}
+{% block app_bar_title %}{{ chat_data.title or 'Chat' }}{% endblock %}
+
+{% block page_content %}
+<div class="chat-container">
+    <div class="chat-messages" id="chat-messages">
+        {% for message in chat_data.messages %}
+            {% if message.role == 'user' %}
+                <div class="message-bubble user">{{ message.content }}</div>
+            {% elif message.role == 'assistant' %}
+                <div class="message-bubble assistant">{{ message.content }}</div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block input_bar %}
+<div class="input-bar">
+    <form id="chat-form" data-uid="{{ chat_data.uid }}">
+        <input type="text" id="message-input" placeholder="Tulis disini..." autocomplete="off">
+        <button type="submit" id="send-button">
+            <span class="material-icons">send</span>
+        </button>
+    </form>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const chatMessages = document.getElementById('chat-messages');
+        const sendButton = document.getElementById('send-button');
+        const chatUid = chatForm.dataset.uid;
+
+        // Scroll to the bottom on page load
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (!message) return;
+            
+            // Add user message to UI immediately
+            addMessageToUI(message, 'user');
+            const userMessage = messageInput.value;
+            messageInput.value = '';
+
+            try {
+                // Send message to our existing chat proxy
+                const response = await fetch(`{{ url_for('api_chat', uid=chat_data.uid) }}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: userMessage })
+                });
+
+                if (!response.ok) {
+                    throw new Error('API request failed');
+                }
+
+                const data = await response.json();
+                
+                // Add assistant reply to UI
+                addMessageToUI(data.reply, 'assistant');
+
+            } catch (error) {
+                console.error('Chat error:', error);
+                addMessageToUI('Error: Could not get reply.', 'assistant');
+            }
+        });
+
+        function addMessageToUI(text, role) {
+            const messageBubble = document.createElement('div');
+            messageBubble.classList.add('message-bubble', role);
+            messageBubble.textContent = text;
+            chatMessages.appendChild(messageBubble);
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    });
+</script>
+{% endblock %}
