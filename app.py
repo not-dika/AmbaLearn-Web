@@ -9,7 +9,7 @@ app.secret_key = os.urandom(24)  # Required for Flask sessions
 # --- IMPORTANT ---
 # This URL must be the public-facing address of your *backend* machine.
 # The one you provided is perfect.
-API_BASE_URL = "https://llm-api.bimazznxt.my.id"
+API_BASE_URL = "http://127.0.0.1:8080"
 
 # --- Authentication & API Session ---
 
@@ -29,6 +29,15 @@ def get_api_session():
     if 'api_cookies' in session:
         api_session.cookies.update(session['api_cookies'])
     return api_session
+
+def get_course_data(api, course_uid):
+    """Helper function to get course data"""
+    try:
+        resp = api.get(f"{API_BASE_URL}/course/{course_uid}")
+        resp.raise_for_status()
+        return resp.json()
+    except requests.exceptions.RequestException:
+        return None
 
 @app.context_processor
 def inject_global_data():
@@ -186,21 +195,20 @@ def generate_course():
 @app.route("/lessons/<string:course_uid>")
 @login_required
 def lessons(course_uid):
-    """This route renders a standalone page, no base.html."""
+    """
+    This route now just finds the first lesson and redirects
+    to the 'lesson_step' route for it.
+    """
     api = get_api_session()
-    try:
-        resp = api.get(f"{API_BASE_URL}/course/{course_uid}")
-        resp.raise_for_status()
-        course_data = resp.json()
-    except requests.exceptions.RequestException:
-        flash("Error finding course.", "error")
+    course_data = get_course_data(api, course_uid)
+    
+    if not course_data or not course_data.get('steps'):
+        flash("Course not found or has no lessons.", "error")
         return redirect(url_for('courses'))
-    return render_template(
-        'lessons.html', 
-        course_title=course_data.get('course_title', 'Course'),
-        steps=course_data.get('steps', []),
-        course_uid=course_uid
-    )
+    
+    # Redirect to the very first lesson
+    first_step_number = course_data['steps'][0]['step_number']
+    return redirect(url_for('lesson_step', course_uid=course_uid, step_number=first_step_number))
 
 @app.route("/user_settings")
 @login_required
@@ -277,6 +285,93 @@ def api_course_chat(course_uid, step_number):
             return jsonify(api_response.json())
         except requests.exceptions.RequestException as e:
             return jsonify({"error": f"API Error: {e}"}), 500
+
+@app.route("/lessons/<string:course_uid>/<int:step_number>")
+@login_required
+def lesson_step(course_uid, step_number):
+    api = get_api_session()
+    
+    # 1. Get full course data (for the sidebar)
+    course_data = get_course_data(api, course_uid)
+    if not course_data:
+        flash("Course not found.", "error")
+        return redirect(url_for('courses'))
+
+    # 2. Find the specific step we are on
+    current_step = next((step for step in course_data.get('steps', []) if step['step_number'] == step_number), None)
+    if not current_step:
+        flash(f"Lesson {step_number} not found.", "error")
+        return redirect(url_for('lessons', course_uid=course_uid))
+
+    # 3. Check lesson status (started or not)
+    try:
+        resp = api.get(f"{API_BASE_URL}/course/{course_uid}/step/{step_number}/chat")
+        
+        if resp.status_code == 200:
+            # 4a. History exists -> render chat template
+            history_data = resp.json().get("history", [])
+            return render_template(
+                "lesson_chat.html",
+                course_uid=course_uid,
+                course_title=course_data.get('course_title', 'Course'),
+                steps=course_data.get('steps', []),
+                step=current_step,
+                active_step_number=step_number,
+                history=history_data
+            )
+        else:
+            # 4b. Not found (or other error) -> render 'not started' template
+            return render_template(
+                "lesson_not_started.html",
+                course_uid=course_uid,
+                course_title=course_data.get('course_title', 'Course'),
+                steps=course_data.get('steps', []),
+                step=current_step,
+                active_step_number=step_number
+            )
+
+    except requests.exceptions.RequestException as e:
+        flash(f"Error loading lesson: {e}", "error")
+        return redirect(url_for('courses'))
+
+@app.route("/lessons/<course_uid>/<int:step_number>/start", methods=["POST"])
+@login_required
+def start_lesson(course_uid, step_number):
+    api = get_api_session()
+    try:
+        api_response = api.post(
+            f"{API_BASE_URL}/course/{course_uid}/step/{step_number}/chat",
+            json={"start": True}
+        )
+        api_response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        flash(f"Error starting lesson: {e}", "error")
+        
+    # After POSTing, redirect back to the GET route for the same step
+    return redirect(url_for('lesson_step', course_uid=course_uid, step_number=step_number))
+
+@app.route("/lessons/<string:course_uid>/calibrate")
+@login_required
+def calibrate_camera(course_uid):
+    """
+    Renders the camera calibration page for a specific course.
+    """
+    api = get_api_session()
+    
+    # We still need course data to populate the sidebar
+    course_data = get_course_data(api, course_uid)
+    if not course_data:
+        flash("Course not found.", "error")
+        return redirect(url_for('courses'))
+
+    return render_template(
+        "calibrate.html",
+        course_uid=course_uid,
+        course_title=course_data.get('course_title', 'Course'),
+        steps=course_data.get('steps', []),
+        # Pass 'calibrate' to make the sidebar link active
+        active_step_number='calibrate' 
+    )
 
 if __name__ == "__main__":
     # Run on 0.0.0.0 to be accessible on your network

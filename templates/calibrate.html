@@ -1,0 +1,51 @@
+{% extends "lesson_layout.html" %}
+
+{% block title %}Calibrate Camera - {{ course_title }}{% endblock %}
+
+{% block lesson_content %}
+<div class="calibrate-container">
+    <h2>Camera Calibration</h2>
+    
+    <video id="webcam-feed" autoplay playsinline muted></video>
+    
+    <p id="cam-status">Requesting camera access...</p>
+    <button class="start-button" id="start-cam-btn">Start Camera</button>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const videoElement = document.getElementById('webcam-feed');
+    const statusElement = document.getElementById('cam-status');
+    const startButton = document.getElementById('start-cam-btn');
+
+    async function startCamera() {
+        statusElement.textContent = "Requesting camera access...";
+        try {
+            // Request access to the user's webcam (client-side)
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: true, 
+                audio: false 
+            });
+            
+            // If successful, show the stream in the <video> tag
+            videoElement.srcObject = stream;
+            statusElement.textContent = "Camera active. Look straight ahead.";
+            startButton.style.display = 'none'; // Hide button after success
+
+        } catch (err) {
+            // Handle errors (e.g., user denied access)
+            console.error("Error accessing webcam:", err);
+            statusElement.textContent = "Error: Could not access camera. Please check permissions.";
+            videoElement.style.display = 'none';
+        }
+    }
+
+    // Add click event to the button
+    startButton.addEventListener('click', startCamera);
+
+    // Optional: You could also try to start it automatically on load
+    // startCamera(); 
+    // (But clicking a button is often more reliable)
+});
+</script>
+{% endblock %}

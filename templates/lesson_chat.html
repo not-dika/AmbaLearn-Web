@@ -1,0 +1,81 @@
+{% extends "lesson_layout.html" %}
+
+{% block title %}{{ step.title }} - {{ course_title }}{% endblock %}
+
+{% block lesson_content %}
+<div class="chat-container">
+    <div class="chat-messages" id="chat-messages">
+        {% for msg in history %}
+            {% if msg.role != 'system' %}
+                <div class="message-bubble {{ msg.role }}">{{ msg.content | safe }}</div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<div id="input-bar-container">
+    <div class="input-bar" id="chat-input-container">
+        <form id="chat-form">
+            <input type="text" id="message-input" placeholder="Type your answer..." autocomplete="off" autofocus>
+            <button type="submit" id="send-button">
+                <span class="material-icons">send</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const chatMessages = document.getElementById('chat-messages');
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+
+        // Scroll to the bottom on load
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        chatForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Add user message to UI
+            addMessageToUI(message, 'user');
+            messageInput.value = '';
+            sendButton.disabled = true;
+
+            try {
+                // Call the *same* API endpoint your SPA was using
+                const response = await fetch(
+                    "{{ url_for('api_course_chat', course_uid=course_uid, step_number=step.step_number) }}",
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ message: message })
+                    }
+                );
+                
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                
+                // Add assistant reply
+                addMessageToUI(data.reply, 'assistant');
+
+            } catch (error) {
+                addMessageToUI(`Error: ${error.message}`, 'system');
+            } finally {
+                sendButton.disabled = false;
+                messageInput.focus();
+            }
+        });
+
+        function addMessageToUI(text, role) {
+            const messageBubble = document.createElement('div');
+            messageBubble.classList.add('message-bubble', role);
+            messageBubble.textContent = text; // Use textContent for security, or innerHTML if you trust the source
+            chatMessages.appendChild(messageBubble);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "lesson_layout.html" %}
+
+{% block title %}{{ step.title }} - {{ course_title }}{% endblock %}
+
+{% block lesson_content %}
+<div class="start-button-container">
+    <form method="POST" action="{{ url_for('start_lesson', course_uid=course_uid, step_number=step.step_number) }}">
+        <button class="start-button">Start Lesson {{ step.step_number }}: {{ step.title }}</button>
+    </form>
+</div>
+{% endblock %}

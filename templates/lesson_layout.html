@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ course_title }}{% endblock %} - AmbaLearn</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+        /* --- Sidebar Icon + Text Fix --- */
+        .drawer-list .icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            font-size: 20px;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        /* --- Center the "Start Lesson" Button --- */
+        .start-button-container {
+            display: flex !important;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+            /* Added to make it fill the space */
+            height: 100%; 
+        }
+
+        .start-button {
+            background-color: var(--color-primary, #4CAF50);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .start-button:hover {
+            background-color: #43a047;
+        }
+
+        /* --- Style for the calibrate page --- */
+        .calibrate-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 20px;
+        }
+        #webcam-feed {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            border-radius: 8px;
+            background-color: var(--color-bg-light);
+            border: 2px solid var(--color-primary-dark);
+        }
+        #cam-status {
+            font-size: 1.1rem;
+            color: var(--color-text-dim);
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <aside class="drawer">
+        <div class="drawer-header">
+            AmbaLearn Lessons
+        </div>
+
+        <div class="drawer-content">
+            <ul class="drawer-list">
+                <li>
+                    <a href="{{ url_for('courses') }}">
+                        <span class="material-icons icon">arrow_back</span>
+                        Back to Courses
+                    </a>
+                </li>
+            </ul>
+            <div class="list-header">Lessons</div>
+            <ul class="drawer-list">
+                {% for step in steps %}
+                <li>
+                    <a href="{{ url_for('lesson_step', course_uid=course_uid, step_number=step.step_number) }}"
+                       class="{% if step.step_number == active_step_number %}active{% endif %}">
+                        <span class="material-icons icon">menu_book_outlined</span>
+                        {{ step.title }}
+                    </a>
+                </li>
+                {% else %}
+                <li>
+                    <a href="#" style="color: var(--color-text-dim); pointer-events: none;">
+                        <span class="material-icons icon">info</span>
+                        No steps in this course
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+
+            <div class="list-header">Exam</div>
+            <ul class="drawer-list">
+                <li>
+                    <a href="{{ url_for('calibrate_camera', course_uid=course_uid) }}"
+                       class="{% if active_step_number == 'calibrate' %}active{% endif %}">
+                        Exam
+                    </a>
+                </li>
+            </ul>
+            </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="app-bar">
+            <span class="title">{{ course_title }}</span>
+        </header>
+
+        <div class="page-body" id="page-body">
+            {% block lesson_content %}
+            {% endblock %}
+        </div>
+    </main>
+
+</body>
+</html>
