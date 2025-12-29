@@ -1,0 +1,577 @@
+{% extends "lesson_layout.html" %}
+
+{% block title %}Exam Results - {{ course_title }}{% endblock %}
+
+{% block lesson_content %}
+<style>
+    /* Certificate Container */
+    .certificate-wrapper {
+        min-height: 100%;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 20px;
+        position: relative;
+        overflow-y: auto;
+    }
+
+    /* Confetti Animation */
+    .confetti {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        top: -10px;
+        opacity: 0;
+        animation: confetti-fall 4s ease-in-out infinite;
+    }
+
+    @keyframes confetti-fall {
+        0% {
+            opacity: 1;
+            top: -10px;
+            transform: translateX(0) rotate(0deg);
+        }
+        100% {
+            opacity: 0;
+            top: 100%;
+            transform: translateX(100px) rotate(720deg);
+        }
+    }
+
+    /* Certificate Card */
+    .certificate-card {
+        background: linear-gradient(145deg, #1a1a2e, #16213e);
+        border-radius: 20px;
+        padding: 40px;
+        max-width: 600px;
+        width: 100%;
+        position: relative;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        border: 2px solid transparent;
+        background-clip: padding-box;
+        animation: fadeIn 0.6s ease-out;
+    }
+
+    .certificate-card::before {
+        content: "";
+        position: absolute;
+        inset: -2px;
+        border-radius: 22px;
+        padding: 2px;
+        background: linear-gradient(135deg, #f5af19, #f12711, #f5af19);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        z-index: -1;
+    }
+
+    .certificate-card.failed::before {
+        background: linear-gradient(135deg, #667eea, #764ba2, #667eea);
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Header Section */
+    .certificate-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .certificate-logo {
+        font-size: 2.5rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, #f5af19, #f12711);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 10px;
+    }
+
+    .certificate-title {
+        font-size: 1.2rem;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        margin-bottom: 5px;
+    }
+
+    .certificate-subtitle {
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    /* Score Section */
+    .score-section {
+        text-align: center;
+        margin: 30px 0;
+    }
+
+    .score-circle-container {
+        position: relative;
+        width: 180px;
+        height: 180px;
+        margin: 0 auto 20px;
+    }
+
+    .score-circle-bg {
+        fill: none;
+        stroke: #333;
+        stroke-width: 8;
+    }
+
+    .score-circle-progress {
+        fill: none;
+        stroke: url(#scoreGradient);
+        stroke-width: 8;
+        stroke-linecap: round;
+        transform: rotate(-90deg);
+        transform-origin: center;
+        transition: stroke-dashoffset 1.5s ease-out;
+    }
+
+    .score-value {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+    }
+
+    .score-number {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #fff;
+    }
+
+    .score-percent {
+        font-size: 1.5rem;
+        color: #888;
+    }
+
+    /* Status Badge */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 25px;
+        border-radius: 50px;
+        font-weight: bold;
+        font-size: 1rem;
+        margin-top: 15px;
+    }
+
+    .status-badge.passed {
+        background: linear-gradient(135deg, #11998e, #38ef7d);
+        color: #fff;
+    }
+
+    .status-badge.failed {
+        background: linear-gradient(135deg, #eb3349, #f45c43);
+        color: #fff;
+    }
+
+    .status-icon {
+        font-size: 1.2rem;
+    }
+
+    /* Details Section */
+    .certificate-details {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        padding: 25px;
+        margin: 30px 0;
+    }
+
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+
+    .detail-label {
+        color: #888;
+        font-size: 0.95rem;
+    }
+
+    .detail-value {
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    /* Message */
+    .certificate-message {
+        text-align: center;
+        margin: 25px 0;
+        padding: 0 20px;
+    }
+
+    .certificate-message p {
+        font-size: 1.1rem;
+        line-height: 1.6;
+        color: #aaa;
+    }
+
+    .certificate-message p strong {
+        color: #fff;
+    }
+
+    /* Action Buttons */
+    .certificate-actions {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 30px;
+    }
+
+    .btn-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 28px;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 1rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        text-decoration: none;
+        color: #fff;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #f5af19, #f12711);
+        color: #fff;
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(245, 175, 25, 0.4);
+        text-decoration: none;
+        color: #fff;
+    }
+
+    .btn-icon {
+        font-size: 1.2rem;
+    }
+
+    /* Trophy Animation */
+    .trophy-container {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .trophy-icon {
+        font-size: 4rem;
+        animation: bounce 2s ease infinite;
+    }
+
+    @keyframes bounce {
+        0%, 20%, 50%, 80%, 100% {
+            transform: translateY(0);
+        }
+        40% {
+            transform: translateY(-15px);
+        }
+        60% {
+            transform: translateY(-8px);
+        }
+    }
+
+    /* Decorative Elements */
+    .decorative-line {
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #f5af19, transparent);
+        margin: 20px 0;
+    }
+</style>
+
+<div class="certificate-wrapper" id="certificateWrapper">
+    <!-- Confetti will be added here by JavaScript -->
+    
+    <div class="certificate-card {% if score < 70 %}failed{% endif %}">
+        {% if score >= 70 %}
+        <div class="trophy-container">
+            <span class="trophy-icon">🏆</span>
+        </div>
+        {% endif %}
+
+        <div class="certificate-header">
+            <div class="certificate-logo">AmbaLearn</div>
+            <div class="certificate-title">Certificate of Completion</div>
+            <div class="certificate-subtitle">{{ course_title }}</div>
+        </div>
+
+        <div class="decorative-line"></div>
+
+        <div class="score-section">
+            <div class="score-circle-container">
+                <svg width="180" height="180" viewBox="0 0 180 180">
+                    <defs>
+                        <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            {% if score >= 70 %}
+                            <stop offset="0%" style="stop-color:#11998e"/>
+                            <stop offset="100%" style="stop-color:#38ef7d"/>
+                            {% else %}
+                            <stop offset="0%" style="stop-color:#eb3349"/>
+                            <stop offset="100%" style="stop-color:#f45c43"/>
+                            {% endif %}
+                        </linearGradient>
+                    </defs>
+                    <circle class="score-circle-bg" cx="90" cy="90" r="80"/>
+                    <circle class="score-circle-progress" id="scoreProgress" cx="90" cy="90" r="80" 
+                            stroke-dasharray="502.65" stroke-dashoffset="502.65"/>
+                </svg>
+                <div class="score-value">
+                    <span class="score-number" id="scoreNumber">0</span>
+                    <span class="score-percent">%</span>
+                </div>
+            </div>
+
+            <div class="status-badge {% if score >= 70 %}passed{% else %}failed{% endif %}">
+                <span class="status-icon">{% if score >= 70 %}✓{% else %}✗{% endif %}</span>
+                <span>{% if score >= 70 %}LULUS{% else %}PERLU PERBAIKAN{% endif %}</span>
+            </div>
+        </div>
+
+        <div class="certificate-details">
+            <div class="detail-row">
+                <span class="detail-label">Nama Peserta</span>
+                <span class="detail-value">{{ username }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Jawaban Benar</span>
+                <span class="detail-value">{{ correct_count }} dari {{ total }} soal</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Tanggal Penyelesaian</span>
+                <span class="detail-value" id="completionDate"></span>
+            </div>
+        </div>
+
+        <div class="certificate-message">
+            {% if score >= 70 %}
+            <p>Selamat <strong>{{ username }}</strong>! Anda telah berhasil menyelesaikan course <strong>{{ course_title }}</strong> dengan hasil yang memuaskan.</p>
+            {% else %}
+            <p>Tetap semangat <strong>{{ username }}</strong>! Pelajari kembali materi course <strong>{{ course_title }}</strong> dan coba lagi untuk hasil yang lebih baik.</p>
+            {% endif %}
+        </div>
+
+        <div class="certificate-actions">
+            <a href="{{ url_for('lessons', course_uid=course_uid) }}" class="btn-action btn-primary">
+                <span class="material-icons btn-icon">arrow_back</span>
+                Kembali ke Course
+            </a>
+            {% if score >= 70 %}
+            <button id="exportBtn" class="btn-action btn-success" onclick="exportCertificate()">
+                <span class="material-icons btn-icon">download</span>
+                Download Sertifikat
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- jsPDF Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+    const finalScore = {{ score }};
+    const courseTitle = "{{ course_title }}";
+    const username = "{{ username }}";
+    const correctCount = {{ correct_count }};
+    const totalQuestions = {{ total }};
+
+    // Set completion date
+    const now = new Date();
+    const options = { day: 'numeric', month: 'long', year: 'numeric' };
+    const formattedDate = now.toLocaleDateString('id-ID', options);
+    document.getElementById('completionDate').textContent = formattedDate;
+
+    // Animate score circle
+    const progress = document.getElementById('scoreProgress');
+    const scoreNumber = document.getElementById('scoreNumber');
+    const circumference = 2 * Math.PI * 80; // 502.65
+
+    setTimeout(() => {
+        const offset = circumference - (finalScore / 100) * circumference;
+        progress.style.strokeDashoffset = offset;
+
+        // Count up animation
+        let current = 0;
+        const duration = 1500;
+        const increment = finalScore / (duration / 16);
+        
+        const counter = setInterval(() => {
+            current += increment;
+            if (current >= finalScore) {
+                current = finalScore;
+                clearInterval(counter);
+            }
+            scoreNumber.textContent = Math.round(current);
+        }, 16);
+    }, 300);
+
+    // Create confetti for passing scores
+    if (finalScore >= 70) {
+        const wrapper = document.getElementById('certificateWrapper');
+        const colors = ['#f5af19', '#f12711', '#38ef7d', '#667eea', '#764ba2', '#fff'];
+        
+        for (let i = 0; i < 50; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + '%';
+            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.animationDelay = Math.random() * 3 + 's';
+            confetti.style.animationDuration = (Math.random() * 2 + 3) + 's';
+            confetti.style.width = (Math.random() * 8 + 6) + 'px';
+            confetti.style.height = confetti.style.width;
+            confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+            wrapper.appendChild(confetti);
+        }
+    }
+
+    // Export Certificate as PDF
+    function exportCertificate() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        // Background gradient effect (simulated with rectangles)
+        doc.setFillColor(26, 26, 46);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+        // Decorative border
+        doc.setDrawColor(245, 175, 25);
+        doc.setLineWidth(1);
+        doc.rect(10, 10, pageWidth - 20, pageHeight - 20);
+        doc.setDrawColor(241, 39, 17);
+        doc.setLineWidth(0.5);
+        doc.rect(15, 15, pageWidth - 30, pageHeight - 30);
+
+        // Corner decorations
+        const cornerSize = 20;
+        doc.setDrawColor(245, 175, 25);
+        doc.setLineWidth(2);
+        // Top-left
+        doc.line(10, 30, 10, 10);
+        doc.line(10, 10, 30, 10);
+        // Top-right
+        doc.line(pageWidth - 30, 10, pageWidth - 10, 10);
+        doc.line(pageWidth - 10, 10, pageWidth - 10, 30);
+        // Bottom-left
+        doc.line(10, pageHeight - 30, 10, pageHeight - 10);
+        doc.line(10, pageHeight - 10, 30, pageHeight - 10);
+        // Bottom-right
+        doc.line(pageWidth - 30, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+        doc.line(pageWidth - 10, pageHeight - 30, pageWidth - 10, pageHeight - 10);
+
+        // Logo/Title
+        doc.setTextColor(245, 175, 25);
+        doc.setFontSize(36);
+        doc.setFont('helvetica', 'bold');
+        doc.text('AmbaLearn', pageWidth / 2, 40, { align: 'center' });
+
+        // Certificate Title
+        doc.setTextColor(200, 200, 200);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'normal');
+        doc.text('SERTIFIKAT PENYELESAIAN', pageWidth / 2, 52, { align: 'center' });
+
+        // Decorative line
+        doc.setDrawColor(245, 175, 25);
+        doc.setLineWidth(0.5);
+        doc.line(pageWidth / 2 - 50, 58, pageWidth / 2 + 50, 58);
+
+        // This certifies
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(12);
+        doc.text('Dengan ini menyatakan bahwa', pageWidth / 2, 72, { align: 'center' });
+
+        // Username
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(28);
+        doc.setFont('helvetica', 'bold');
+        doc.text(username, pageWidth / 2, 88, { align: 'center' });
+
+        // Has completed
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Telah berhasil menyelesaikan course', pageWidth / 2, 102, { align: 'center' });
+
+        // Course Title
+        doc.setTextColor(56, 239, 125);
+        doc.setFontSize(20);
+        doc.setFont('helvetica', 'bold');
+        doc.text(courseTitle, pageWidth / 2, 115, { align: 'center' });
+
+        // Score
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'normal');
+        doc.text('dengan skor', pageWidth / 2, 130, { align: 'center' });
+
+        doc.setTextColor(245, 175, 25);
+        doc.setFontSize(32);
+        doc.setFont('helvetica', 'bold');
+        doc.text(finalScore + '%', pageWidth / 2, 145, { align: 'center' });
+
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text('(' + correctCount + ' dari ' + totalQuestions + ' soal benar)', pageWidth / 2, 155, { align: 'center' });
+
+        // Date
+        doc.setTextColor(200, 200, 200);
+        doc.setFontSize(11);
+        doc.text('Diselesaikan pada ' + formattedDate, pageWidth / 2, 175, { align: 'center' });
+
+        // Signature line
+        doc.setDrawColor(100, 100, 100);
+        doc.setLineWidth(0.3);
+        doc.line(pageWidth / 2 - 40, 190, pageWidth / 2 + 40, 190);
+        doc.setTextColor(120, 120, 120);
+        doc.setFontSize(10);
+        doc.text('AmbaLearn Team', pageWidth / 2, 197, { align: 'center' });
+
+        // Save PDF
+        const fileName = 'Sertifikat_' + courseTitle.replace(/[^a-zA-Z0-9]/g, '_') + '_' + username.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf';
+        doc.save(fileName);
+    }
+</script>
+{% endblock %}

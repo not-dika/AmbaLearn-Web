@@ -10,6 +10,8 @@
     
     <p id="cam-status">Requesting camera access...</p>
     <button class="start-button" id="start-cam-btn">Start Camera</button>
+    <br><br>
+    <a href="{{ url_for('take_exam', course_uid=course_uid) }}" id="start-exam-btn" class="start-button" style="background-color: #28a745; text-decoration: none; display: inline-block; opacity: 0.5; pointer-events: none;">Start Exam &rarr;</a>
 </div>
 
 <script>
@@ -17,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const videoElement = document.getElementById('webcam-feed');
     const statusElement = document.getElementById('cam-status');
     const startButton = document.getElementById('start-cam-btn');
+    const startExamButton = document.getElementById('start-exam-btn');
 
     async function startCamera() {
         statusElement.textContent = "Requesting camera access...";
@@ -31,6 +34,10 @@ document.addEventListener("DOMContentLoaded", () => {
             videoElement.srcObject = stream;
             statusElement.textContent = "Camera active. Look straight ahead.";
             startButton.style.display = 'none'; // Hide button after success
+            
+            // Enable Start Exam Button
+            startExamButton.style.opacity = "1";
+            startExamButton.style.pointerEvents = "auto";
 
         } catch (err) {
             // Handle errors (e.g., user denied access)

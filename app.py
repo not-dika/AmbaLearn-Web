@@ -372,7 +372,100 @@ def calibrate_camera(course_uid):
         # Pass 'calibrate' to make the sidebar link active
         active_step_number='calibrate' 
     )
+
+@app.route("/lessons/<string:course_uid>/exam")
+@login_required
+def take_exam(course_uid):
+    api = get_api_session()
+    course_data = get_course_data(api, course_uid)
+    if not course_data:
+        flash("Course not found.", "error")
+        return redirect(url_for('courses'))
+
+    # Fetch exam from Engine
+    try:
+        resp = api.get(f"{API_BASE_URL}/course/{course_uid}/exam")
+        if resp.status_code == 200:
+            exam_data = resp.json().get('exam')
+            exam_uid = resp.json().get('exam_uid')
+        else:
+            flash("Exam not available yet.", "info")
+            return redirect(url_for('courses'))
+    except requests.exceptions.RequestException:
+        flash("Could not load exam data.", "error")
+        return redirect(url_for('courses'))
+
+    return render_template(
+        "exam.html",
+        course_uid=course_uid,
+        exam_uid=exam_uid,
+        exam=exam_data,
+        course_title=course_data.get('course_title', 'Course'),
+        steps=course_data.get('steps', []),
+        active_step_number='exam'
+    )
+
+    return render_template(
+        "exam.html",
+        course_uid=course_uid,
+        exam_uid=exam_uid,
+        exam=exam_data,
+        course_title=course_data.get('course_title', 'Course'),
+        steps=course_data.get('steps', []),
+        active_step_number='exam'
+    )
+
+@app.route("/api/course/<string:course_uid>/exam/submit", methods=["POST"])
+@login_required
+def submit_exam_proxy(course_uid):
+    api = get_api_session()
+    data = request.json
     
+    # Forward to Engine
+    try:
+        resp = api.post(f"{API_BASE_URL}/course/{course_uid}/exam/submit", json=data)
+        if resp.status_code == 200:
+            return jsonify(resp.json())
+        else:
+            return jsonify({"error": "Submission failed at engine"}), resp.status_code
+    except requests.exceptions.RequestException as e:
+         return jsonify({"error": str(e)}), 500
+
+@app.route("/lessons/<string:course_uid>/score")
+@login_required
+def exam_score(course_uid):
+    api = get_api_session()
+    course_data = get_course_data(api, course_uid)
+    if not course_data:
+        flash("Course not found.", "error")
+        return redirect(url_for('courses'))
+    
+    # Get username from API
+    try:
+        user_resp = api.get(f"{API_BASE_URL}/@me")
+        if user_resp.ok:
+            username = user_resp.json().get('username', 'Student')
+        else:
+            username = 'Student'
+    except requests.exceptions.RequestException:
+        username = 'Student'
+    
+    score = request.args.get('score', 0, type=int)
+    total = request.args.get('total', 0, type=int)
+    correct_count = request.args.get('correct_count', 0, type=int)
+
+    return render_template(
+        "score.html",
+        course_uid=course_uid,
+        course_title=course_data.get('course_title', 'Course'),
+        steps=course_data.get('steps', []),
+        active_step_number='exam',
+        score=score,
+        total=total,
+        correct_count=correct_count,
+        username=username
+    )
+
 @app.route("/google_auth", methods=["POST"])
 def google_auth():
     data = request.get_json()
