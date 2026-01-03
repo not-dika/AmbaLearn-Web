@@ -1,0 +1,522 @@
+{% extends "lesson_layout.html" %}
+
+{% block title %}Exam - {{ course_title }}{% endblock %}
+
+{% block lesson_content %}
+<style>
+    .exam-page-container {
+        padding: 20px;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    /* Exam Header */
+    .exam-header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .exam-title {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #fff;
+        margin-bottom: 10px;
+    }
+
+    .exam-subtitle {
+        color: #888;
+        font-size: 0.95rem;
+    }
+
+    /* Warning Banner */
+    #warning-banner {
+        display: none;
+        background: linear-gradient(135deg, #eb3349, #f45c43);
+        color: white;
+        padding: 20px;
+        margin-bottom: 20px;
+        text-align: center;
+        font-weight: bold;
+        border-radius: 12px;
+        position: fixed;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        width: 80%;
+        max-width: 600px;
+        box-shadow: 0 10px 40px rgba(235, 51, 73, 0.4);
+        animation: pulse-warning 1s infinite;
+    }
+
+    @keyframes pulse-warning {
+        0%, 100% { transform: translateX(-50%) scale(1); }
+        50% { transform: translateX(-50%) scale(1.02); }
+    }
+
+    /* Webcam Section */
+    .webcam-section {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+    }
+
+    .webcam-container {
+        position: relative;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .webcam-container video,
+    .webcam-container img {
+        display: block;
+        width: 280px;
+        height: auto;
+        border-radius: 10px;
+    }
+
+    .webcam-label {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    /* Progress Indicator */
+    .progress-section {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 15px 20px;
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .progress-text {
+        color: #aaa;
+        font-size: 0.9rem;
+    }
+
+    .progress-text strong {
+        color: #fff;
+    }
+
+    .progress-bar {
+        width: 200px;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    /* Question Card */
+    .question-card {
+        background: linear-gradient(145deg, #1a1a2e, #16213e);
+        border-radius: 16px;
+        padding: 25px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .question-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+    }
+
+    .question-number {
+        display: inline-block;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 32px;
+        font-weight: bold;
+        font-size: 0.9rem;
+        margin-right: 12px;
+    }
+
+    .question-text {
+        color: #fff;
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin-bottom: 20px;
+        display: inline;
+    }
+
+    /* Option Cards */
+    .options-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .option-card {
+        display: flex;
+        align-items: center;
+        padding: 15px 20px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 2px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .option-card:hover {
+        background: rgba(102, 126, 234, 0.1);
+        border-color: rgba(102, 126, 234, 0.3);
+    }
+
+    .option-card.selected {
+        background: rgba(102, 126, 234, 0.15);
+        border-color: #667eea;
+    }
+
+    .option-radio {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #555;
+        border-radius: 50%;
+        margin-right: 15px;
+        position: relative;
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+    }
+
+    .option-card.selected .option-radio {
+        border-color: #667eea;
+        background: #667eea;
+    }
+
+    .option-card.selected .option-radio::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 8px;
+        height: 8px;
+        background: #fff;
+        border-radius: 50%;
+    }
+
+    .option-key {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.1);
+        color: #888;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        text-align: center;
+        line-height: 28px;
+        font-weight: bold;
+        font-size: 0.85rem;
+        margin-right: 15px;
+        flex-shrink: 0;
+    }
+
+    .option-card.selected .option-key {
+        background: rgba(102, 126, 234, 0.3);
+        color: #fff;
+    }
+
+    .option-text {
+        color: #ccc;
+        font-size: 1rem;
+    }
+
+    .option-card.selected .option-text {
+        color: #fff;
+    }
+
+    /* Hidden radio input */
+    .option-card input[type="radio"] {
+        display: none;
+    }
+
+    /* Submit Button */
+    .submit-section {
+        text-align: center;
+        margin-top: 40px;
+        padding-top: 30px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .submit-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 40px;
+        background: linear-gradient(135deg, #11998e, #38ef7d);
+        color: #fff;
+        border: none;
+        border-radius: 50px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 25px rgba(56, 239, 125, 0.3);
+    }
+
+    .submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 35px rgba(56, 239, 125, 0.4);
+    }
+
+    .submit-btn:active {
+        transform: translateY(0);
+    }
+
+    .submit-btn .material-icons {
+        font-size: 1.3rem;
+    }
+</style>
+
+<div class="exam-page-container">
+    <!-- Warning banner -->
+    <div id="warning-banner">
+        ⚠️ CHEATING DETECTED: Please keep your eyes on the screen!
+    </div>
+
+    <!-- Exam Header -->
+    <div class="exam-header">
+        <h1 class="exam-title">{{ exam.get('exam_title', 'Final Exam') }}</h1>
+        <p class="exam-subtitle">Jawab semua pertanyaan dengan teliti. Kamera akan memantau aktivitas Anda.</p>
+    </div>
+
+    <!-- Webcam Section -->
+    <div class="webcam-section">
+        <div class="webcam-container">
+            <video id="video" autoplay playsinline></video>
+            <span class="webcam-label">Live Camera</span>
+        </div>
+        <div class="webcam-container">
+            <img id="processed" />
+            <span class="webcam-label">Eye Tracking</span>
+        </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div class="progress-section">
+        <span class="progress-text">Pertanyaan: <strong><span id="answeredCount">0</span> dari {{ exam.questions|length }}</strong> dijawab</span>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- Questions -->
+    <div id="exam-questions">
+        {% for q in exam.questions %}
+        {% set question_num = loop.index %}
+        <div class="question-card" data-question="{{ question_num }}">
+            <div style="margin-bottom: 15px;">
+                <span class="question-number">{{ question_num }}</span>
+                <span class="question-text">{{ q.question }}</span>
+            </div>
+            <div class="options-container">
+                {% for key, value in q.options.items() %}
+                <div class="option-card" data-question="{{ question_num }}" data-key="{{ key }}">
+                    <input type="radio" name="q{{ question_num }}" value="{{ key }}" style="display:none;">
+                    <div class="option-radio"></div>
+                    <span class="option-key">{{ key }}</span>
+                    <span class="option-text">{{ value }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Submit Section -->
+    <div class="submit-section">
+        <button id="submit-button" class="submit-btn">
+            <span class="material-icons">send</span>
+            Submit Exam
+        </button>
+    </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+    const course_uid = "{{ course_uid }}";
+    const exam_uid = "{{ exam_uid }}";
+    const totalQuestions = {{ exam.questions|length }};
+
+    // --- Option Card Click Handler ---
+    function setupOptionCards() {
+        document.querySelectorAll('.option-card').forEach(card => {
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const questionCard = this.closest('.question-card');
+                const radioInput = this.querySelector('input[type="radio"]');
+                
+                // Check if already selected
+                const isSelected = this.classList.contains('selected');
+                
+                // Remove selection from all options in this question
+                questionCard.querySelectorAll('.option-card').forEach(opt => {
+                    opt.classList.remove('selected');
+                    const radio = opt.querySelector('input[type="radio"]');
+                    if (radio) radio.checked = false;
+                });
+                
+                // If wasn't selected, select it now (toggle behavior)
+                if (!isSelected) {
+                    this.classList.add('selected');
+                    if (radioInput) radioInput.checked = true;
+                }
+                
+                updateProgress();
+            });
+        });
+    }
+    
+    // Initialize on DOM ready
+    setupOptionCards();
+
+    // --- Progress Update ---
+    function updateProgress() {
+        let answered = 0;
+        document.querySelectorAll('.question-card').forEach(card => {
+            if (card.querySelector('.option-card.selected')) {
+                answered++;
+            }
+        });
+        document.getElementById('answeredCount').textContent = answered;
+        document.getElementById('progressFill').style.width = (answered / totalQuestions * 100) + '%';
+    }
+
+    // --- Anti-Cheating WebSocket ---
+    const socket = io("http://localhost:5001", {
+        transports: ["websocket"]
+    });
+
+    const video = document.getElementById("video");
+    const processed = document.getElementById("processed");
+
+    socket.on("connect", () => {
+        console.log("Connected to anti-cheating server.");
+    });
+
+    const warningBanner = document.getElementById("warning-banner");
+
+    socket.on("cheating_alert", (data) => {
+        console.warn("Cheating Warning:", data.detail);
+        warningBanner.style.display = "block";
+        warningBanner.innerText = `⚠️ WARNING: ${data.detail}. Keep your focus on the screen!`;
+        
+        setTimeout(() => {
+            warningBanner.style.display = "none";
+        }, 5000);
+    });
+
+    socket.on("auto_submit", (data) => {
+        console.error("Auto Submit Triggered:", data.detail);
+        alert("⛔ VIOLATION LIMIT EXCEEDED.\nYour exam is being automatically submitted.");
+        submit_exam("auto_submit_violation", data.detail);
+    });
+
+    socket.on("processed_frame", (data) => {
+        processed.src = "data:image/jpeg;base64," + data;
+    });
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then((stream) => {
+            video.srcObject = stream;
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            setInterval(() => {
+                if (!video.videoWidth) return;
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0);
+                const frame = canvas.toDataURL("image/jpeg", 0.7);
+                socket.emit("send_frame", frame);
+            }, 100);
+        })
+        .catch((err) => {
+            console.error("Camera error:", err);
+            alert("Could not access camera. Please enable camera access to continue.");
+        });
+
+    // --- Exam Submission ---
+    async function submit_exam(reason = "user_manual_submission", detail = "") {
+        const answers = {};
+        document.querySelectorAll('.question-card').forEach((card, idx) => {
+            const selected = card.querySelector('.option-card.selected input[type="radio"]');
+            answers['q' + (idx + 1)] = selected ? selected.value : null;
+        });
+
+        const submission_data = {
+            course_uid: course_uid,
+            exam_uid: exam_uid,
+            answers: answers,
+            submission_reason: reason,
+            submission_detail: detail
+        };
+
+        try {
+            const response = await fetch("/api/course/" + course_uid + "/exam/submit", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(submission_data)
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                window.location.href = "/lessons/" + course_uid + "/score?score=" + result.score + "&total=" + result.total_questions + "&correct_count=" + result.correct_count;
+            } else {
+                const error = await response.json();
+                alert("Error submitting exam: " + error.error);
+            }
+        } catch (err) {
+            console.error("Submission fetch error:", err);
+            alert("A network error occurred while submitting the exam.");
+        }
+    }
+
+    document.getElementById("submit-button").addEventListener("click", () => {
+        // Check if all questions are answered
+        let unanswered = 0;
+        document.querySelectorAll('.question-card').forEach(card => {
+            if (!card.querySelector('.option-card.selected')) {
+                unanswered++;
+            }
+        });
+
+        if (unanswered > 0) {
+            if (!confirm(`Anda masih memiliki ${unanswered} pertanyaan yang belum dijawab. Tetap submit?`)) {
+                return;
+            }
+        }
+        
+        submit_exam();
+    });
+</script>
+{% endblock %}
