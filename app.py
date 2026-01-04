@@ -10,6 +10,7 @@ app.secret_key = os.urandom(24)  # Required for Flask sessions
 # This URL must be the public-facing address of your *backend* machine.
 # The one you provided is perfect.
 API_BASE_URL = "http://127.0.0.1:8080"
+MEDIAPIPE_BASE_URL = "http://127.0.0.1:5001"
 
 # --- Authentication & API Session ---
 
@@ -402,7 +403,8 @@ def take_exam(course_uid):
         exam=exam_data,
         course_title=course_data.get('course_title', 'Course'),
         steps=course_data.get('steps', []),
-        active_step_number='exam'
+        active_step_number='exam',
+        socket_url=MEDIAPIPE_BASE_URL
     )
 
     return render_template(

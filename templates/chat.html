@@ -4,13 +4,72 @@
 {% block app_bar_title %}{{ chat_data.title or 'Chat' }}{% endblock %}
 
 {% block page_content %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<style>
+    /* Responsive Video Container */
+    .video-container {
+        position: relative;
+        padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+        height: 0;
+        overflow: hidden;
+        max-width: 100%;
+        background: #000;
+        margin-top: 10px;
+        border-radius: 8px;
+    }
+
+    .video-container iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* Message Bubble Styling for Rich Text */
+    .message-bubble {
+        line-height: 1.5;
+        /* Ensure the bubble wraps the content tightly */
+        display: flex;       
+        flex-direction: column;
+    }
+
+    /* Standard paragraph spacing */
+    .message-bubble p {
+        margin: 0 0 10px 0;
+    }
+
+    /* 🔥 THE FIX: Remove margin from the very last element in the bubble */
+    .message-bubble > *:last-child {
+        margin-bottom: 0 !important;
+    }
+
+    .message-bubble ul, .message-bubble ol {
+        margin: 5px 0 10px 20px;
+    }
+
+    .message-bubble a {
+        color: #007bff;
+        text-decoration: underline;
+    }
+
+    .message-bubble.user {
+        color: white; 
+    }
+    
+    .message-bubble.user a {
+        color: #e0e0e0;
+    }
+</style>
+
 <div class="chat-container">
     <div class="chat-messages" id="chat-messages">
         {% for message in chat_data.messages %}
             {% if message.role == 'user' %}
-                <div class="message-bubble user">{{ message.content }}</div>
+                <div class="message-bubble user" data-raw="{{ message.content }}">{{ message.content }}</div>
             {% elif message.role == 'assistant' %}
-                <div class="message-bubble assistant">{{ message.content }}</div>
+                <div class="message-bubble assistant" data-raw="{{ message.content }}">{{ message.content }}</div>
             {% endif %}
         {% endfor %}
     </div>
@@ -35,7 +94,45 @@
         const sendButton = document.getElementById('send-button');
         const chatUid = chatForm.dataset.uid;
 
-        // Scroll to the bottom on page load
+        // --- 2. Configure Marked.js with Custom Renderer ---
+        const renderer = new marked.Renderer();
+        
+        // FIX: Update signature to accept an object (Marked.js v12+ compatibility)
+        renderer.link = ({ href, title, text }) => {
+            // Ensure href is a string to prevent errors
+            const url = href || ''; 
+            
+            // Check for standard youtube.com or youtu.be links
+            const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+            const match = url.match(youtubeRegex);
+
+            // If it's a YouTube link, return the link + the iframe
+            if (match && match[1]) {
+                const videoId = match[1];
+                return `<a href="${url}" target="_blank" title="${title || ''}">${text}</a>
+                        <div class="video-container">
+                            <iframe src="https://www.youtube.com/embed/${videoId}" 
+                                    frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowfullscreen>
+                            </iframe>
+                        </div>`;
+            }
+
+            // Fallback for non-video links
+            return `<a href="${url}" target="_blank" title="${title || ''}">${text}</a>`;
+        };
+        // ----------------------------------------------------
+
+        // Parse all existing messages on page load
+        document.querySelectorAll('.message-bubble').forEach(bubble => {
+            const rawText = bubble.getAttribute('data-raw') || bubble.textContent;
+            // marked.parse is async by default in some versions, but usually sync for simple strings.
+            // We use the sync version implicitly here.
+            bubble.innerHTML = marked.parse(rawText, { renderer: renderer });
+        });
+
+        // Scroll to the bottom
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
         chatForm.addEventListener('submit', async (e) => {
@@ -43,26 +140,21 @@
             const message = messageInput.value.trim();
             if (!message) return;
             
-            // Add user message to UI immediately
+            // Add user message immediately
             addMessageToUI(message, 'user');
-            const userMessage = messageInput.value;
             messageInput.value = '';
 
             try {
-                // Send message to our existing chat proxy
                 const response = await fetch(`{{ url_for('api_chat', uid=chat_data.uid) }}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: userMessage })
+                    body: JSON.stringify({ message: message })
                 });
 
-                if (!response.ok) {
-                    throw new Error('API request failed');
-                }
-
+                if (!response.ok) throw new Error('API request failed');
                 const data = await response.json();
                 
-                // Add assistant reply to UI
+                // Add assistant reply
                 addMessageToUI(data.reply, 'assistant');
 
             } catch (error) {
@@ -74,9 +166,12 @@
         function addMessageToUI(text, role) {
             const messageBubble = document.createElement('div');
             messageBubble.classList.add('message-bubble', role);
-            messageBubble.textContent = text;
+            
+            // Store raw text just in case, then render HTML
+            messageBubble.setAttribute('data-raw', text);
+            messageBubble.innerHTML = marked.parse(text, { renderer: renderer });
+            
             chatMessages.appendChild(messageBubble);
-            // Scroll to bottom
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
     });

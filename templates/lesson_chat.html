@@ -3,11 +3,68 @@
 {% block title %}{{ step.title }} - {{ course_title }}{% endblock %}
 
 {% block lesson_content %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<style>
+    /* Responsive Video Container */
+    .video-container {
+        position: relative;
+        padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+        height: 0;
+        overflow: hidden;
+        max-width: 100%;
+        background: #000;
+        margin-top: 10px;
+        border-radius: 8px;
+    }
+
+    .video-container iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* Message Bubble Styling for Rich Text */
+    .message-bubble {
+        line-height: 1.5;
+        display: flex;       
+        flex-direction: column;
+    }
+
+    .message-bubble p {
+        margin: 0 0 10px 0;
+    }
+
+    /* Remove margin from the last element to fix extra whitespace */
+    .message-bubble > *:last-child {
+        margin-bottom: 0 !important;
+    }
+
+    .message-bubble ul, .message-bubble ol {
+        margin: 5px 0 10px 20px;
+    }
+
+    .message-bubble a {
+        color: #007bff;
+        text-decoration: underline;
+    }
+
+    .message-bubble.user {
+        color: white; 
+    }
+    
+    .message-bubble.user a {
+        color: #e0e0e0;
+    }
+</style>
+
 <div class="chat-container">
     <div class="chat-messages" id="chat-messages">
         {% for msg in history %}
             {% if msg.role != 'system' %}
-                <div class="message-bubble {{ msg.role }}">{{ msg.content | safe }}</div>
+                <div class="message-bubble {{ msg.role }}" data-raw="{{ msg.content }}">{{ msg.content }}</div>
             {% endif %}
         {% endfor %}
     </div>
@@ -31,6 +88,35 @@
         const messageInput = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
 
+        // --- Configure Marked.js with Custom Renderer ---
+        const renderer = new marked.Renderer();
+        
+        renderer.link = ({ href, title, text }) => {
+            const url = href || ''; 
+            const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+            const match = url.match(youtubeRegex);
+
+            if (match && match[1]) {
+                const videoId = match[1];
+                return `<a href="${url}" target="_blank" title="${title || ''}">${text}</a>
+                        <div class="video-container">
+                            <iframe src="https://www.youtube.com/embed/${videoId}" 
+                                    frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowfullscreen>
+                            </iframe>
+                        </div>`;
+            }
+            return `<a href="${url}" target="_blank" title="${title || ''}">${text}</a>`;
+        };
+        // ----------------------------------------------------
+
+        // Parse existing history messages
+        document.querySelectorAll('.message-bubble').forEach(bubble => {
+            const rawText = bubble.getAttribute('data-raw') || bubble.textContent;
+            bubble.innerHTML = marked.parse(rawText, { renderer: renderer });
+        });
+
         // Scroll to the bottom on load
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -45,7 +131,6 @@
             sendButton.disabled = true;
 
             try {
-                // Call the *same* API endpoint your SPA was using
                 const response = await fetch(
                     "{{ url_for('api_course_chat', course_uid=course_uid, step_number=step.step_number) }}",
                     {
@@ -72,7 +157,10 @@
         function addMessageToUI(text, role) {
             const messageBubble = document.createElement('div');
             messageBubble.classList.add('message-bubble', role);
-            messageBubble.textContent = text; // Use textContent for security, or innerHTML if you trust the source
+            
+            // Render text as Markdown
+            messageBubble.innerHTML = marked.parse(text, { renderer: renderer });
+            
             chatMessages.appendChild(messageBubble);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }

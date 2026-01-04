@@ -412,7 +412,7 @@
     }
 
     // --- Anti-Cheating WebSocket ---
-    const socket = io("http://localhost:5001", {
+    const socket = io("{{ socket_url }}", {
         transports: ["websocket"]
     });
 
