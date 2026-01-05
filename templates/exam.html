@@ -362,7 +362,7 @@
 <script>
     const course_uid = "{{ course_uid }}";
     const exam_uid = "{{ exam_uid }}";
-    const totalQuestions = {{ exam.questions|length }};
+    const totalQuestions = Number("{{ exam.questions|length }}");
 
     // --- Option Card Click Handler ---
     function setupOptionCards() {
