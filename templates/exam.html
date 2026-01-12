@@ -294,67 +294,89 @@
     }
 </style>
 
+
 <div class="exam-page-container">
     <!-- Warning banner -->
     <div id="warning-banner">
         ⚠️ CHEATING DETECTED: Please keep your eyes on the screen!
     </div>
 
-    <!-- Exam Header -->
-    <div class="exam-header">
+    <!-- Start Overlay (Initial State) -->
+    <div id="start-overlay" style="text-align: center; margin-top: 50px;">
         <h1 class="exam-title">{{ exam.get('exam_title', 'Final Exam') }}</h1>
-        <p class="exam-subtitle">Jawab semua pertanyaan dengan teliti. Kamera akan memantau aktivitas Anda.</p>
-    </div>
-
-    <!-- Webcam Section -->
-    <div class="webcam-section">
-        <div class="webcam-container">
-            <video id="video" autoplay playsinline></video>
-            <span class="webcam-label">Live Camera</span>
+        <p class="exam-subtitle">Wajah anda harus terdeteksi kamera untuk memulai ujian.</p>
+        
+        <div class="webcam-section" id="initial-webcam">
+            <!-- Video will be moved here or kept here -->
         </div>
-        <div class="webcam-container">
-            <img id="processed" />
-            <span class="webcam-label">Eye Tracking</span>
-        </div>
-    </div>
 
-    <!-- Progress Section -->
-    <div class="progress-section">
-        <span class="progress-text">Pertanyaan: <strong><span id="answeredCount">0</span> dari {{ exam.questions|length }}</strong> dijawab</span>
-        <div class="progress-bar">
-            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        <div style="margin-top: 30px;">
+            <p id="face-status" style="color: #f45c43; font-weight: bold; margin-bottom: 15px;">Mencari wajah...</p>
+            <button id="start-exam-btn" class="submit-btn" disabled style="opacity: 0.5; cursor: not-allowed; background: grey;">
+                <span class="material-icons">play_arrow</span>
+                Start Exam
+            </button>
         </div>
     </div>
 
-    <!-- Questions -->
-    <div id="exam-questions">
-        {% for q in exam.questions %}
-        {% set question_num = loop.index %}
-        <div class="question-card" data-question="{{ question_num }}">
-            <div style="margin-bottom: 15px;">
-                <span class="question-number">{{ question_num }}</span>
-                <span class="question-text">{{ q.question }}</span>
+    <!-- Main Exam Content (Hidden initially) -->
+    <div id="exam-content" style="display: none;">
+        <!-- Exam Header -->
+        <div class="exam-header">
+            <h1 class="exam-title">{{ exam.get('exam_title', 'Final Exam') }}</h1>
+            <p class="exam-subtitle">Jawab semua pertanyaan dengan teliti. Kamera akan memantau aktivitas Anda.</p>
+        </div>
+
+        <!-- Webcam Section (Moved here after start) -->
+        <div class="webcam-section" id="active-webcam">
+            <div class="webcam-container">
+                <video id="video" autoplay playsinline></video>
+                <span class="webcam-label">Live Camera</span>
             </div>
-            <div class="options-container">
-                {% for key, value in q.options.items() %}
-                <div class="option-card" data-question="{{ question_num }}" data-key="{{ key }}">
-                    <input type="radio" name="q{{ question_num }}" value="{{ key }}" style="display:none;">
-                    <div class="option-radio"></div>
-                    <span class="option-key">{{ key }}</span>
-                    <span class="option-text">{{ value }}</span>
+            <div class="webcam-container">
+                <img id="processed" />
+                <span class="webcam-label">Eye Tracking</span>
+            </div>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="progress-section">
+            <span class="progress-text">Pertanyaan: <strong><span id="answeredCount">0</span> dari {{ exam.questions|length }}</strong> dijawab</span>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Questions -->
+        <div id="exam-questions">
+            {% for q in exam.questions %}
+            {% set question_num = loop.index %}
+            <div class="question-card" data-question="{{ question_num }}">
+                <div style="margin-bottom: 15px;">
+                    <span class="question-number">{{ question_num }}</span>
+                    <span class="question-text">{{ q.question }}</span>
                 </div>
-                {% endfor %}
+                <div class="options-container">
+                    {% for key, value in q.options.items() %}
+                    <div class="option-card" data-question="{{ question_num }}" data-key="{{ key }}">
+                        <input type="radio" name="q{{ question_num }}" value="{{ key }}" style="display:none;">
+                        <div class="option-radio"></div>
+                        <span class="option-key">{{ key }}</span>
+                        <span class="option-text">{{ value }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
 
-    <!-- Submit Section -->
-    <div class="submit-section">
-        <button id="submit-button" class="submit-btn">
-            <span class="material-icons">send</span>
-            Submit Exam
-        </button>
+        <!-- Submit Section -->
+        <div class="submit-section">
+            <button id="submit-button" class="submit-btn">
+                <span class="material-icons">send</span>
+                Submit Exam
+            </button>
+        </div>
     </div>
 </div>
 
@@ -363,6 +385,28 @@
     const course_uid = "{{ course_uid }}";
     const exam_uid = "{{ exam_uid }}";
     const totalQuestions = Number("{{ exam.questions|length }}");
+
+    // --- Start Exam Logic ---
+    const startOverlay = document.getElementById('start-overlay');
+    const examContent = document.getElementById('exam-content');
+    const startBtn = document.getElementById('start-exam-btn');
+    const faceStatus = document.getElementById('face-status');
+    const activeWebcamContainer = document.getElementById('active-webcam');
+    const initialWebcamContainer = document.getElementById('initial-webcam');
+
+    // Move webcam to initial container
+    initialWebcamContainer.appendChild(activeWebcamContainer);
+
+    startBtn.addEventListener('click', () => {
+        startOverlay.style.display = 'none';
+        examContent.style.display = 'block';
+        
+        // Move webcam back to active container position (inside exam content)
+        // Actually, since I appended the whole div, I can just leave it or move it.
+        // But the layout asks for it to be inside exam-content.
+        const header = document.querySelector('#exam-content .exam-header');
+        header.after(activeWebcamContainer); 
+    });
 
     // --- Option Card Click Handler ---
     function setupOptionCards() {
@@ -442,7 +486,44 @@
     });
 
     socket.on("processed_frame", (data) => {
-        processed.src = "data:image/jpeg;base64," + data;
+        // Support both old string format and new object format
+        let imageSrc = "";
+        let numFaces = -1;
+
+        if (typeof data === 'string') {
+            imageSrc = data;
+        } else {
+            imageSrc = data.image;
+            numFaces = data.num_faces;
+            
+            // Logic for Start Button
+            if (startOverlay.style.display !== 'none') {
+                if (numFaces === 1) {
+                    startBtn.disabled = false;
+                    startBtn.style.opacity = "1";
+                    startBtn.style.cursor = "pointer";
+                    startBtn.style.background = "linear-gradient(135deg, #11998e, #38ef7d)";
+                    faceStatus.textContent = "✅ Wajah terdeteksi (1). Silakan mulai.";
+                    faceStatus.style.color = "#38ef7d";
+                } else if (numFaces === 0) {
+                    startBtn.disabled = true;
+                    startBtn.style.opacity = "0.5";
+                    startBtn.style.cursor = "not-allowed";
+                    startBtn.style.background = "grey";
+                    faceStatus.textContent = "⚠️ Tidak ada wajah terdeteksi.";
+                    faceStatus.style.color = "#f45c43";
+                } else {
+                    startBtn.disabled = true;
+                    startBtn.style.opacity = "0.5";
+                    startBtn.style.cursor = "not-allowed";
+                    startBtn.style.background = "grey";
+                    faceStatus.textContent = `⚠️ Terdeteksi ${numFaces} wajah. Harap hanya 1 wajah.`;
+                    faceStatus.style.color = "#f45c43";
+                }
+            }
+        }
+        
+        processed.src = "data:image/jpeg;base64," + imageSrc;
     });
 
     navigator.mediaDevices.getUserMedia({ video: true })

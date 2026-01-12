@@ -487,7 +487,9 @@ def google_auth():
 
         if resp.ok:
             # Save backend cookies into the frontend session
-            session["api_cookies"] = api_session.cookies.get_dict()
+            data = resp.json()
+            session["access_token"] = data["token"]
+            session["user"] = data["user"]
             return jsonify({"success": True})
         else:
             return jsonify({"success": False, "error": resp.json()}), 401
