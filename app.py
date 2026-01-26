@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 import requests
+from datetime import datetime
 from functools import wraps
 import os
 
@@ -9,8 +10,8 @@ app.secret_key = os.urandom(24)  # Required for Flask sessions
 # --- IMPORTANT ---
 # This URL must be the public-facing address of your *backend* machine.
 # The one you provided is perfect.
-API_BASE_URL = "http://127.0.0.1:8080"
-MEDIAPIPE_BASE_URL = "http://127.0.0.1:5001"
+API_BASE_URL = "http://45.156.85.205:8080"
+MEDIAPIPE_BASE_URL = "http://localhost:5001"
 
 # --- Authentication & API Session ---
 
@@ -56,13 +57,15 @@ def inject_global_data():
             
             return dict(
                 logged_in_user=user_info,
-                chat_history=chat_history
+                chat_history=chat_history,
+                now=datetime.now,
+                strptime=datetime.strptime
             )
         except requests.exceptions.RequestException:
             # API is down or unreachable
-            return dict(logged_in_user={"username": "Error"}, chat_history=[])
+            return dict(logged_in_user={"username": "Error"}, chat_history=[], now=datetime.now, strptime=datetime.strptime)
             
-    return dict(logged_in_user=None, chat_history=[])
+    return dict(logged_in_user=None, chat_history=[], now=datetime.now, strptime=datetime.strptime)
 
 # --- Auth Routes (Proxy to API) ---
 
@@ -116,7 +119,7 @@ def register():
             if response.status_code == 201:
                 # Save cookies and log in
                 session['api_cookies'] = api_session.cookies.get_dict()
-                return redirect(url_for('homepage'))
+                return redirect(url_for('complete_profile'))
             else:
                 flash(response.json().get("error", "Registration failed"), "error")
         except requests.exceptions.RequestException as e:
@@ -135,6 +138,77 @@ def logout():
     session.clear()
     flash("You have been logged out.", "success")
     return redirect(url_for('login'))
+
+@app.route("/complete_profile", methods=["GET", "POST"])
+@login_required
+def complete_profile():
+    if request.method == "POST":
+        birthday = request.form.get("birthday")
+        if not birthday:
+            flash("Please make sure to enter your birthday.", "error")
+            return redirect(url_for('complete_profile'))
+
+        api = get_api_session()
+        try:
+            # We use the existing /user/update endpoint
+            resp = api.post(f"{API_BASE_URL}/user/update", json={"birthday": birthday})
+            
+            if resp.ok:
+                flash("Profile updated! Welcome!", "success")
+                return redirect(url_for('homepage'))
+            else:
+                flash(resp.json().get("error", "Failed to update profile"), "error")
+        except requests.exceptions.RequestException as e:
+            flash(f"Error connecting to service: {e}", "error")
+            
+    return render_template('complete_profile.html')
+
+@app.route("/settings/update", methods=["POST"])
+@login_required
+def update_settings():
+    username = request.form.get("username")
+    birthday = request.form.get("birthday")
+    password = request.form.get("password")
+    confirm_password = request.form.get("confirm_password")
+    
+    # Password confirmation validation
+    if password:
+        if not confirm_password:
+            flash("Please confirm your new password.", "error")
+            return redirect(url_for('user_settings'))
+        if password != confirm_password:
+            flash("Passwords do not match. Please try again.", "error")
+            return redirect(url_for('user_settings'))
+    
+    # Construct payload with only non-empty fields
+    payload = {}
+    if username: payload["username"] = username
+    if birthday: payload["birthday"] = birthday
+    if password: payload["password"] = password
+    
+    if not payload:
+        flash("No changes were made.", "info")
+        return redirect(url_for('user_settings'))
+
+    api = get_api_session()
+    try:
+        resp = api.post(f"{API_BASE_URL}/user/update", json=payload)
+        
+        if resp.ok:
+            if password:
+                # If password was updated, force logout
+                session.clear()
+                flash("Silahkan Login Kembali", "success")
+                return redirect(url_for('login'))
+            else:
+                flash("Settings updated successfully!", "success")
+        else:
+            flash(resp.json().get("error", "Failed to update settings"), "error")
+            
+    except requests.exceptions.RequestException as e:
+        flash(f"Error connecting to service: {e}", "error")
+
+    return redirect(url_for('user_settings'))
 
 # --- Page Routes ---
 
@@ -470,29 +544,38 @@ def exam_score(course_uid):
 
 @app.route("/google_auth", methods=["POST"])
 def google_auth():
+    print("DEBUG: Google Auth route hit")
     data = request.get_json()
     credential = data.get("credential")
+    print(f"DEBUG: Credential received (first 50 chars): {credential[:50] if credential else 'None'}...")
 
     if not credential:
+        print("DEBUG: Missing credential")
         return jsonify({"success": False, "error": "Missing credential"}), 400
 
     api_session = requests.Session()
 
     try:
         # Forward credential to main backend ("real API" on :8080)
+        print(f"DEBUG: Forwarding to backend: {API_BASE_URL}/auth/google")
         resp = api_session.post(
             f"{API_BASE_URL}/auth/google",
             json={"credential": credential}
         )
+        print(f"DEBUG: Backend response status: {resp.status_code}")
+        print(f"DEBUG: Backend response content: {resp.text}")
 
         if resp.ok:
             # Save backend cookies into the frontend session
             session["api_cookies"] = api_session.cookies.get_dict()
+            print("DEBUG: Login successful, session cookies saved")
             return jsonify({"success": True})
         else:
+            print(f"DEBUG: Login failed: {resp.json()}")
             return jsonify({"success": False, "error": resp.json()}), 401
 
     except Exception as e:
+        print(f"DEBUG: Exception during Google Auth: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == "__main__":

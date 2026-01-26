@@ -13,30 +13,652 @@
 {% block drawer_footer %}{% endblock %}
 
 {% block page_content %}
-<div class="settings-container">
+<div class="settings-page">
+    <!-- Profile Hero Card -->
+    <div class="profile-hero-card">
+        <div class="hero-background"></div>
+        <div class="profile-content">
+            <!-- Avatar -->
+            <div class="avatar-wrapper">
+                {% if logged_in_user.picture %}
+                    <div class="avatar-circle" style="background-image: url('{{ logged_in_user.picture }}'); background-size: cover; background-position: center;">
+                    </div>
+                {% else %}
+                    {% if logged_in_user and logged_in_user.username %}
+                        {% set first_letter = logged_in_user.username[0] | upper %}
+                    {% else %}
+                        {% set first_letter = '?' %}
+                    {% endif %}
+                    <div class="avatar-circle">
+                        <span class="avatar-letter">{{ first_letter }}</span>
+                    </div>
+                {% endif %}
+                <div class="avatar-badge">
+                    <span class="material-icons">verified</span>
+                </div>
+            </div>
+            
+            <!-- User Info -->
+            <div class="user-details">
+                <h2 class="display-name">{{ logged_in_user.username if logged_in_user else "Guest" }}</h2>
+                <div class="user-meta">
+                    <div class="meta-item">
+                        <span class="material-icons">email</span>
+                        <span>{{ logged_in_user.email if logged_in_user and logged_in_user.email else "No email set" }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="material-icons">cake</span>
+                        {% if logged_in_user and logged_in_user.birthday %}
+                            {% set today = now().date() %}
+                            {% set bday = strptime(logged_in_user.birthday, '%Y-%m-%d').date() %}
+                            {% set age = today.year - bday.year - ((today.month, today.day) < (bday.month, bday.day)) %}
+                            <span>{{ age }} years old</span>
+                        {% else %}
+                            <span>Age not set</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    {% if logged_in_user and logged_in_user.username %}
-        {% set first_letter = logged_in_user.username[0] | upper %}
-        <img class="avatar" src="https://placehold.co/100x100/EEE/444?text={{ first_letter }}" alt="Avatar">
-    {% else %}
-        <img class="avatar" src="https://placehold.co/100x100/EEE/444?text=?" alt="Avatar">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="flash-container">
+            {% for category, message in messages %}
+            <div class="settings-flash {{ category }}">
+                <span class="material-icons">{{ 'check_circle' if category == 'success' else 'error' }}</span>
+                <span>{{ message }}</span>
+            </div>
+            {% endfor %}
+        </div>
     {% endif %}
+    {% endwith %}
 
-    <div class="username">
-        {{ logged_in_user.username if logged_in_user else "Guest" }}
+    <!-- Settings Cards Container -->
+    <div class="settings-cards-container">
+        <!-- Edit Profile Card -->
+        <div class="settings-card">
+            <div class="card-header">
+                <div class="header-icon">
+                    <span class="material-icons">person</span>
+                </div>
+                <div class="header-text">
+                    <h3>Edit Profile</h3>
+                    <p>Update your personal information</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('update_settings') }}" method="POST">
+                    <div class="form-field">
+                        <label for="username">Username</label>
+                        <div class="field-input">
+                            <span class="material-icons field-icon">badge</span>
+                            <input type="text" id="username" name="username" value="{{ logged_in_user.username }}" placeholder="Enter username">
+                        </div>
+                    </div>
+                    <div class="form-field">
+                        <label for="birthday">Birthday</label>
+                        <div class="field-input">
+                            <span class="material-icons field-icon">event</span>
+                            <input type="date" id="birthday" name="birthday" value="{{ logged_in_user.birthday }}">
+                        </div>
+                    </div>
+                    <button type="submit" class="settings-btn primary">
+                        <span class="material-icons">save</span>
+                        Save Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Security Card -->
+        <div class="settings-card">
+            <div class="card-header">
+                <div class="header-icon security">
+                    <span class="material-icons">security</span>
+                </div>
+                <div class="header-text">
+                    <h3>Security</h3>
+                    <p>Manage your password</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <form id="password-form" action="{{ url_for('update_settings') }}" method="POST">
+                    <div class="form-field">
+                        <label for="new-password">New Password</label>
+                        <div class="field-input password-field">
+                            <span class="material-icons field-icon">lock</span>
+                            <input type="password" id="new-password" name="password" placeholder="Enter new password">
+                            <button type="button" class="toggle-password" onclick="togglePassword('new-password', this)">
+                                <span class="material-icons">visibility_off</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-field">
+                        <label for="confirm-password">Confirm Password</label>
+                        <div class="field-input password-field">
+                            <span class="material-icons field-icon">lock_outline</span>
+                            <input type="password" id="confirm-password" name="confirm_password" placeholder="Confirm new password">
+                            <button type="button" class="toggle-password" onclick="togglePassword('confirm-password', this)">
+                                <span class="material-icons">visibility_off</span>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="settings-btn primary">
+                        <span class="material-icons">vpn_key</span>
+                        Update Password
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Logout Card -->
+        <div class="settings-card danger-card">
+            <div class="card-header">
+                <div class="header-icon danger">
+                    <span class="material-icons">logout</span>
+                </div>
+                <div class="header-text">
+                    <h3>Sign Out</h3>
+                    <p>Log out from your account</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <a href="{{ url_for('logout') }}" class="settings-btn danger">
+                    <span class="material-icons">power_settings_new</span>
+                    Log Out
+                </a>
+            </div>
+        </div>
     </div>
-
-    <div class="email">
-        {{ logged_in_user.email if logged_in_user and logged_in_user.email else "" }}
-    </div>
-
-    <hr>
-
-    <a href="{{ url_for('logout') }}" class="btn btn-logout">
-        <span class="material-icons">logout</span>
-        Log Out
-    </a>
 </div>
+
+<style>
+    .settings-page {
+        width: 100%;
+        max-width: 100%;
+        padding: 24px;
+        animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Profile Hero Card */
+    .profile-hero-card {
+        position: relative;
+        background: var(--color-surface);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--color-divider);
+    }
+
+    .hero-background {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 100px;
+        background: var(--gradient-primary);
+    }
+
+    .hero-background::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(circle at 20% 80%, rgba(255,255,255,0.15) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 40%);
+    }
+
+    .profile-content {
+        position: relative;
+        padding: 60px 24px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    /* Avatar */
+    .avatar-wrapper {
+        position: relative;
+        margin-top: -20px;
+    }
+
+    .avatar-circle {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: var(--gradient-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 4px solid var(--color-surface);
+        box-shadow: 0 8px 32px rgba(30, 64, 175, 0.3);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .avatar-circle:hover {
+        transform: scale(1.05);
+        box-shadow: 0 12px 40px rgba(30, 64, 175, 0.4);
+    }
+
+    .avatar-letter {
+        font-size: 42px;
+        font-weight: 700;
+        color: white;
+        text-transform: uppercase;
+    }
+
+    .avatar-badge {
+        position: absolute;
+        bottom: 4px;
+        right: 4px;
+        width: 28px;
+        height: 28px;
+        background: var(--color-accent);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--color-surface);
+        box-shadow: var(--shadow-md);
+    }
+
+    .avatar-badge .material-icons {
+        font-size: 16px;
+        color: white;
+    }
+
+    /* User Details */
+    .user-details {
+        margin-top: 16px;
+    }
+
+    .display-name {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--color-text-primary);
+        margin: 0 0 12px 0;
+    }
+
+    .user-meta {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 16px;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--color-text-secondary);
+        font-size: 14px;
+        padding: 6px 12px;
+        background: var(--color-bg-primary);
+        border-radius: var(--radius-full);
+    }
+
+    .meta-item .material-icons {
+        font-size: 18px;
+        color: var(--color-primary);
+    }
+
+    /* Flash Messages */
+    .flash-container {
+        margin-bottom: 24px;
+    }
+
+    .settings-flash {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        border-radius: var(--radius-md);
+        margin-bottom: 8px;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(-10px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+
+    .settings-flash.success {
+        background: rgba(22, 163, 74, 0.1);
+        border: 1px solid rgba(22, 163, 74, 0.2);
+        color: var(--color-success);
+    }
+
+    .settings-flash.error {
+        background: rgba(220, 38, 38, 0.1);
+        border: 1px solid rgba(220, 38, 38, 0.2);
+        color: var(--color-error);
+    }
+
+    .settings-flash .material-icons {
+        font-size: 22px;
+    }
+
+    /* Settings Cards Container */
+    .settings-cards-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    /* Settings Card */
+    .settings-card {
+        background: var(--color-surface);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--color-divider);
+        overflow: hidden;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .settings-card:hover {
+        box-shadow: var(--shadow-lg);
+    }
+
+    .card-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 20px;
+        border-bottom: 1px solid var(--color-divider);
+        background: var(--color-bg-primary);
+    }
+
+    .header-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: var(--radius-md);
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .header-icon.security {
+        background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-light) 100%);
+    }
+
+    .header-icon.danger {
+        background: linear-gradient(135deg, var(--color-error) 0%, #F87171 100%);
+    }
+
+    .header-icon .material-icons {
+        font-size: 24px;
+        color: white;
+    }
+
+    .header-text h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        margin: 0 0 4px 0;
+    }
+
+    .header-text p {
+        font-size: 13px;
+        color: var(--color-text-secondary);
+        margin: 0;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Form Fields */
+    .form-field {
+        margin-bottom: 20px;
+    }
+
+    .form-field label {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .field-input {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .field-icon {
+        position: absolute;
+        left: 14px;
+        color: var(--color-text-secondary);
+        font-size: 20px;
+        pointer-events: none;
+        transition: color 0.2s ease;
+    }
+
+    .field-input input {
+        width: 100%;
+        padding: 14px 14px 14px 48px;
+        border: 2px solid var(--color-divider);
+        border-radius: var(--radius-md);
+        background: var(--color-bg-primary);
+        color: var(--color-text-primary);
+        font-size: 15px;
+        transition: all 0.2s ease;
+    }
+
+    .field-input input:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.1);
+    }
+
+    .field-input input:focus + .field-icon,
+    .field-input:focus-within .field-icon {
+        color: var(--color-primary);
+    }
+
+    .password-field input {
+        padding-right: 48px;
+    }
+
+    .toggle-password {
+        position: absolute;
+        right: 8px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: var(--radius-sm);
+        color: var(--color-text-secondary);
+        transition: color 0.2s ease, background 0.2s ease;
+    }
+
+    .toggle-password:hover {
+        color: var(--color-primary);
+        background: var(--color-divider);
+    }
+
+    .toggle-password .material-icons {
+        font-size: 20px;
+    }
+
+    /* Buttons */
+    .settings-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        width: 100%;
+        padding: 14px 24px;
+        border: none;
+        border-radius: var(--radius-md);
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+    }
+
+    .settings-btn.primary {
+        background: var(--gradient-primary);
+        color: white;
+        box-shadow: 0 4px 14px rgba(30, 64, 175, 0.25);
+    }
+
+    .settings-btn.primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(30, 64, 175, 0.35);
+    }
+
+    .settings-btn.danger {
+        background: linear-gradient(135deg, var(--color-error) 0%, #F87171 100%);
+        color: white;
+        box-shadow: 0 4px 14px rgba(220, 38, 38, 0.25);
+    }
+
+    .settings-btn.danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(220, 38, 38, 0.35);
+    }
+
+    .settings-btn .material-icons {
+        font-size: 20px;
+    }
+
+    /* Danger Card */
+    .danger-card {
+        border-color: rgba(220, 38, 38, 0.2);
+    }
+
+    .danger-card .card-header {
+        background: rgba(220, 38, 38, 0.05);
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+        .settings-page {
+            padding: 16px;
+        }
+
+        .profile-content {
+            padding: 50px 16px 20px;
+        }
+
+        .avatar-circle {
+            width: 80px;
+            height: 80px;
+        }
+
+        .avatar-letter {
+            font-size: 32px;
+        }
+
+        .display-name {
+            font-size: 20px;
+        }
+
+        .user-meta {
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .card-header {
+            padding: 16px;
+        }
+
+        .card-body {
+            padding: 16px;
+        }
+    }
+</style>
+
+<script>
+    function togglePassword(inputId, button) {
+        const input = document.getElementById(inputId);
+        const icon = button.querySelector('.material-icons');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.textContent = 'visibility';
+        } else {
+            input.type = 'password';
+            icon.textContent = 'visibility_off';
+        }
+    }
+
+    // Password confirmation validation
+    document.addEventListener('DOMContentLoaded', function() {
+        const passwordForm = document.getElementById('password-form');
+        const newPassword = document.getElementById('new-password');
+        const confirmPassword = document.getElementById('confirm-password');
+        const confirmInput = confirmPassword.closest('.field-input');
+        
+        // Create feedback element
+        const feedback = document.createElement('div');
+        feedback.className = 'password-feedback';
+        feedback.style.cssText = 'margin-top: 8px; font-size: 13px; display: flex; align-items: center; gap: 6px;';
+        confirmInput.parentNode.appendChild(feedback);
+        
+        function checkPasswordMatch() {
+            const pass = newPassword.value;
+            const confirm = confirmPassword.value;
+            
+            if (!pass && !confirm) {
+                feedback.innerHTML = '';
+                confirmPassword.style.borderColor = '';
+                return true;
+            }
+            
+            if (confirm) {
+                if (pass === confirm) {
+                    feedback.innerHTML = '<span class="material-icons" style="color: var(--color-success); font-size: 18px;">check_circle</span><span style="color: var(--color-success);">Passwords match</span>';
+                    confirmPassword.style.borderColor = 'var(--color-success)';
+                    return true;
+                } else {
+                    feedback.innerHTML = '<span class="material-icons" style="color: var(--color-error); font-size: 18px;">error</span><span style="color: var(--color-error);">Passwords do not match</span>';
+                    confirmPassword.style.borderColor = 'var(--color-error)';
+                    return false;
+                }
+            } else if (pass) {
+                feedback.innerHTML = '<span class="material-icons" style="color: var(--color-text-secondary); font-size: 18px;">info</span><span style="color: var(--color-text-secondary);">Please confirm your password</span>';
+                confirmPassword.style.borderColor = '';
+                return false;
+            }
+            return true;
+        }
+        
+        newPassword.addEventListener('input', checkPasswordMatch);
+        confirmPassword.addEventListener('input', checkPasswordMatch);
+        
+        passwordForm.addEventListener('submit', function(e) {
+            const pass = newPassword.value;
+            const confirm = confirmPassword.value;
+            
+            if (pass && pass !== confirm) {
+                e.preventDefault();
+                feedback.innerHTML = '<span class="material-icons" style="color: var(--color-error); font-size: 18px;">error</span><span style="color: var(--color-error);">Passwords do not match!</span>';
+                confirmPassword.style.borderColor = 'var(--color-error)';
+                confirmPassword.focus();
+            }
+        });
+    });
+</script>
 {% endblock %}
 
 {% block input_bar %}{% endblock %}

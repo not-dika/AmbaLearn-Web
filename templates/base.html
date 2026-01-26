@@ -5,75 +5,114 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AmbaLearn{% endblock %}</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    
+    <!-- Theme initialization script -->
+    <script>
+        // Apply saved theme immediately to prevent flash
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            }
+        })();
+    </script>
 </head>
 
 <body>
 
     <aside class="drawer">
         <div class="drawer-header">
-            AmbaLearn Menu
+            <div class="logo-icon">
+                <span class="material-icons icon">school</span>
+            </div>
+            <div class="logo-text">
+                <h1>AmbaLearn</h1>
+                <span>Learn Smarter</span>
+            </div>
         </div>
 
         <div class="drawer-content">
+            <!-- Main Menu -->
             <ul class="drawer-list">
                 <li>
                     <a href="{{ url_for('homepage') }}">
-                        <span class="material-icons icon">add</span>
-                        New Chat
+                        <div class="icon-wrapper">
+                            <span class="material-icons icon">add</span>
+                        </div>
+                        <span>New Chat</span>
                     </a>
                 </li>
                 <li>
                     <a href="{{ url_for('courses') }}">
-                        <span class="material-icons icon">school</span>
-                        Courses
+                        <div class="icon-wrapper">
+                            <span class="material-icons icon">school</span>
+                        </div>
+                        <span>Courses</span>
                     </a>
                 </li>
             </ul>
 
-            <div class="list-header">Chats</div>
+            <div class="section-title">Recent Chats</div>
 
             <ul class="drawer-list" id="chat-history-list">
                 {% for chat in chat_history %}
                 <li>
-                    <a href="{{ url_for('chat_page', uid=chat.uid) }}">
-                        <span class="material-icons icon">chat_bubble_outline</span>
-                        {{ chat.title or 'New Chat' }}
+                    <a href="{{ url_for('chat_page', uid=chat.uid) }}" {% if request.endpoint == 'chat_page' and request.view_args.uid == chat.uid %}class="active"{% endif %}>
+                        <div class="icon-wrapper">
+                            <span class="material-icons icon">chat_bubble_outline</span>
+                        </div>
+                        <span>{{ chat.title or 'New Chat' }}</span>
                     </a>
                 </li>
                 {% else %}
                 <li>
-                    <a href="#" style="color: var(--color-text-dim); pointer-events: none;">
-                        <span class="material-icons icon">info</span>
-                        No chat history
+                    <a href="#" style="opacity: 0.5; pointer-events: none;">
+                        <div class="icon-wrapper">
+                            <span class="material-icons icon">info</span>
+                        </div>
+                        <span>No chat history</span>
                     </a>
                 </li>
                 {% endfor %}
             </ul>
         </div>
 
+        <!-- Theme Toggle -->
+        <div class="theme-toggle" onclick="toggleTheme()">
+            <div class="label">
+                <span class="material-icons icon" id="theme-icon">brightness_auto</span>
+                <span>Theme</span>
+            </div>
+            <span class="badge" id="theme-badge">System</span>
+        </div>
+
         <div class="drawer-footer">
             {% if logged_in_user %}
-            <a href="{{ url_for('user_settings') }}" class="drawer-user">
-
-                {# Avatar using placehold.co #}
-                {% set letter = logged_in_user.username[0] | upper %}
-                <img class="avatar" src="https://placehold.co/40x40/EEE/444?text={{ letter }}" alt="Avatar">
-
+            <a href="{{ url_for('user_settings') }}">
+                {% if logged_in_user.picture %}
+                    <div class="avatar" style="background-image: url('{{ logged_in_user.picture }}'); background-size: cover; background-position: center; color: transparent; border-radius: 50%;"></div>
+                {% else %}
+                    {% set letter = logged_in_user.username[0] | upper %}
+                    <div class="avatar">{{ letter }}</div>
+                {% endif %}
                 <div class="user-info">
                     <div class="username">{{ logged_in_user.username }}</div>
-                    <div class="organization">No organization</div>
+                    <div class="email">{{ logged_in_user.email or 'No email' }}</div>
                 </div>
-
-                <span class="material-icons icon">arrow_forward_ios</span>
+                <span class="material-icons icon">chevron_right</span>
             </a>
             {% endif %}
         </div>
-
-
-
     </aside>
 
     <main class="main-content">
@@ -81,7 +120,10 @@
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
             {% for category, message in messages %}
-            <div class="flash-message {{ category }}">{{ message }}</div>
+            <div class="flash-message {{ category }}">
+                <span class="material-icons icon">{{ 'check_circle' if category == 'success' else 'error' }}</span>
+                {{ message }}
+            </div>
             {% endfor %}
             {% endif %}
             {% endwith %}
@@ -99,6 +141,49 @@
         {% block input_bar %}
         {% endblock %}
     </main>
+
+    <!-- Theme Toggle Script -->
+    <script>
+        const themeOptions = ['system', 'light', 'dark'];
+        let currentThemeIndex = 0;
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'system';
+            currentThemeIndex = themeOptions.indexOf(savedTheme);
+            if (currentThemeIndex === -1) currentThemeIndex = 0;
+            applyTheme(themeOptions[currentThemeIndex]);
+        }
+
+        function toggleTheme() {
+            currentThemeIndex = (currentThemeIndex + 1) % themeOptions.length;
+            const newTheme = themeOptions[currentThemeIndex];
+            localStorage.setItem('theme', newTheme);
+            applyTheme(newTheme);
+        }
+
+        function applyTheme(theme) {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            const badge = document.getElementById('theme-badge');
+
+            if (theme === 'system') {
+                html.removeAttribute('data-theme');
+                icon.textContent = 'brightness_auto';
+                badge.textContent = 'System';
+            } else if (theme === 'light') {
+                html.setAttribute('data-theme', 'light');
+                icon.textContent = 'light_mode';
+                badge.textContent = 'Light';
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                icon.textContent = 'dark_mode';
+                badge.textContent = 'Dark';
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initTheme);
+    </script>
 
 </body>
 

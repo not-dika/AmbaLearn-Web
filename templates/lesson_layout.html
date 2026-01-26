@@ -94,7 +94,7 @@
                 <li>
                     <a href="{{ url_for('lesson_step', course_uid=course_uid, step_number=step.step_number) }}"
                        class="{% if step.step_number == active_step_number %}active{% endif %}">
-                        <span class="material-icons icon">menu_book_outlined</span>
+                        <span class="material-icons icon">menu_book</span>
                         {{ step.title }}
                     </a>
                 </li>
@@ -113,6 +113,7 @@
                 <li>
                     <a href="{{ url_for('calibrate_camera', course_uid=course_uid) }}"
                        class="{% if active_step_number == 'calibrate' %}active{% endif %}">
+                        <span class="material-icons icon">quiz</span>
                         Exam
                     </a>
                 </li>

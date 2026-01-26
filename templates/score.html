@@ -404,11 +404,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
-    const finalScore = {{ score }};
+    const finalScore = Number("{{ score }}");
     const courseTitle = "{{ course_title }}";
     const username = "{{ username }}";
-    const correctCount = {{ correct_count }};
-    const totalQuestions = {{ total }};
+    const correctCount = Number("{{ correct_count }}");
+    const totalQuestions = Number("{{ total }}");
 
     // Set completion date
     const now = new Date();
