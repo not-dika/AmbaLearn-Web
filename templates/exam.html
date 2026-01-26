@@ -457,7 +457,8 @@
 
     // --- Anti-Cheating WebSocket ---
     const socket = io("{{ socket_url }}", {
-        transports: ["websocket"]
+        transports: ["websocket"],
+        query: { "client_type": "web" }
     });
 
     const video = document.getElementById("video");
