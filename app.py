@@ -10,7 +10,7 @@ app.secret_key = os.urandom(24)  # Required for Flask sessions
 # --- IMPORTANT ---
 # This URL must be the public-facing address of your *backend* machine.
 # The one you provided is perfect.
-API_BASE_URL = "http://45.156.85.205:8080"
+API_BASE_URL = "http://localhost:8080"
 MEDIAPIPE_BASE_URL = "http://localhost:5001"
 
 # --- Authentication & API Session ---
@@ -22,6 +22,27 @@ def login_required(f):
         if 'api_cookies' not in session:
             flash("Please log in to access this page.", "error")
             return redirect(url_for('login'))
+        
+        # Verify session validity with backend
+        api = get_api_session()
+        try:
+            # We use a lightweight call to check validity
+            response = api.get(f"{API_BASE_URL}/@me")
+            if not response.ok:
+                session.clear()
+                flash("Session expired. Please log in again.", "error")
+                return redirect(url_for('login'))
+            
+            # Optimization: Store user info so inject_global_data doesn't need to fetch it again
+            # We use flask.g for request-scope storage
+            from flask import g
+            g.user = response.json()
+
+        except requests.exceptions.RequestException:
+             session.clear()
+             flash("Connection error. Please log in.", "error")
+             return redirect(url_for('login'))
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -45,15 +66,28 @@ def get_course_data(api, course_uid):
 def inject_global_data():
     """Injects data into all templates (for the sidebar)"""
     if 'api_cookies' in session:
+        # Check if we already fetched the user in login_required
+        from flask import g
+        user_info = getattr(g, 'user', None)
+
         api = get_api_session()
         try:
-            # Fetch user info for the sidebar footer
-            user_resp = api.get(f"{API_BASE_URL}/@me")
-            user_info = user_resp.json() if user_resp.ok else {"username": "Guest"}
-            
+            # If not already fetched (e.g. unprotected route or first time), fetch it
+            if not user_info:
+                user_resp = api.get(f"{API_BASE_URL}/@me")
+                if user_resp.ok:
+                    user_info = user_resp.json()
+                else:
+                    # If we fail here, and we ARE in a protected route, login_required would have caught it.
+                    # If we are in an UNProtected route (like /login), we just don't show user info.
+                    user_info = None
+
             # Fetch chat history for the sidebar list
-            chat_resp = api.get(f"{API_BASE_URL}/list_sessions")
-            chat_history = chat_resp.json().get('sessions', []) if chat_resp.ok else []
+            # We only do this if we have a valid user
+            chat_history = []
+            if user_info:
+                chat_resp = api.get(f"{API_BASE_URL}/list_sessions")
+                chat_history = chat_resp.json().get('sessions', []) if chat_resp.ok else []
             
             return dict(
                 logged_in_user=user_info,
@@ -63,7 +97,7 @@ def inject_global_data():
             )
         except requests.exceptions.RequestException:
             # API is down or unreachable
-            return dict(logged_in_user={"username": "Error"}, chat_history=[], now=datetime.now, strptime=datetime.strptime)
+            return dict(logged_in_user=None, chat_history=[], now=datetime.now, strptime=datetime.strptime)
             
     return dict(logged_in_user=None, chat_history=[], now=datetime.now, strptime=datetime.strptime)
 
